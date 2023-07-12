@@ -1,89 +1,71 @@
-﻿using System.Collections.Concurrent;
-using System.ComponentModel;
+﻿using System.ComponentModel;
 using System.Net;
-using System.Runtime;
-using System.Xml.Linq;
 
 namespace AdCreativeCase;
 
 public class Program
 {
-    public static bool isDelete = false;
-    public static int DownloadedImages = 0;
+    public static bool _isCancel = false;
+    public static int _downloadedImages = 0;
     private static Settings? _settings;
 
 
 
     static void Main(string[] args)
     {
-        string settingPath = Path.Combine(Directory.GetCurrentDirectory(), "Input.json");
-        ReadSettings(settingPath);
+        ReadSettings();
+
         string path = Path.Combine(Directory.GetCurrentDirectory(), _settings.SavePath);
         Uri uri = new Uri("https://picsum.photos/200/300");
 
         Console.CancelKeyPress += (sender, e) =>
         {
             e.Cancel = true;
-            isDelete = true;
+            _isCancel = true;
         };
 
         Parallel.For(0, _settings.Count, new ParallelOptions { MaxDegreeOfParallelism = _settings.Parallelism },
           async (i, state) =>
           {
-              if (isDelete)
+              if (_isCancel)
                   state.Stop();
 
               WebClient wc = new();
               wc.DownloadFileCompleted += DownloadDataCompletedCallback;
+
               if (!Directory.Exists(path))
                   Directory.CreateDirectory(path);
+
               wc.DownloadFileTaskAsync(uri, Path.Combine(path, i.ToString() + ".png")).Wait();
           });
 
-        if (isDelete)
+        if (_isCancel)
         {
             CleanUpDownloadedImages();
         }
     }
+
     private static void DownloadDataCompletedCallback(object? sender, AsyncCompletedEventArgs e)
     {
-        Interlocked.Increment(ref DownloadedImages);
-        Console.Write($"Downloading {DownloadedImages} images of {_settings.Count} ({_settings.Parallelism} parallel downloads at most)");
+        Interlocked.Increment(ref _downloadedImages);
+        Console.Write($"Downloading {_downloadedImages} images of {_settings.Count} ({_settings.Parallelism} parallel downloads at most)");
         Console.SetCursorPosition(0, 0);
     }
 
-    static void ReadSettings(string inputFile)
+    private static void ReadSettings()
     {
-        var inputJson = File.ReadAllText(inputFile);
+        string settingPath = Path.Combine(Directory.GetCurrentDirectory(), "Input.json");
+        var inputJson = File.ReadAllText(settingPath);
         _settings = Newtonsoft.Json.JsonConvert.DeserializeObject<Settings>(inputJson);
     }
-
 
     private static void CleanUpDownloadedImages()
     {
         string path = Path.Combine(Directory.GetCurrentDirectory(), _settings.SavePath);
-
         foreach (var imageName in Directory.GetFiles(path))
         {
-            try
-            {
-                if (File.Exists(imageName))
-                {
-                    File.Delete(imageName);
-                }
-            }
-            catch (Exception)
-            {
-
-                throw;
-            }
+            if (File.Exists(imageName))
+                File.Delete(imageName);
         }
     }
-}
-
-public class Settings
-{
-    public int Count { get; set; }
-    public int Parallelism { get; set; }
-    public string SavePath { get; set; } = "outputs";
 }
