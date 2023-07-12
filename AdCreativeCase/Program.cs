@@ -23,6 +23,7 @@ public class Program
             e.Cancel = true;
             _isCancel = true;
         };
+        Console.Write($"Downloading {_settings.Count} images  ({_settings.Parallelism} parallel downloads at most)");
 
         Parallel.For(0, _settings.Count, new ParallelOptions { MaxDegreeOfParallelism = _settings.Parallelism },
           async (i, state) =>
@@ -48,8 +49,8 @@ public class Program
     private static void DownloadDataCompletedCallback(object? sender, AsyncCompletedEventArgs e)
     {
         Interlocked.Increment(ref _downloadedImages);
-        Console.Write($"Downloading {_downloadedImages} images of {_settings.Count} ({_settings.Parallelism} parallel downloads at most)");
-        Console.SetCursorPosition(0, 0);
+        Console.SetCursorPosition(0, 3);
+        Console.Write($"{_downloadedImages}/{_settings.Count}");
     }
 
     private static void ReadSettings()
